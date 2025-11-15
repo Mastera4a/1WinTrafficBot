@@ -15,6 +15,8 @@ namespace _1WinTrafficBot.Bot
         private readonly ITelegramBotClient _bot;
         private readonly TextService _textService;
         private readonly Dictionary<long, AdminState> _adminState = new();
+        private readonly Dictionary<long, AdminEditState> _adminEdits = new();
+
 
 
         private readonly HashSet<long> _admins = new()
@@ -54,77 +56,77 @@ namespace _1WinTrafficBot.Bot
         {
             long uid = query.From.Id;
 
-            // Проверяем — это админ?
+            // Проверяем, что это админ
             if (!_admins.Contains(uid))
             {
-                await _bot.AnswerCallbackQuery(query.Id, "Нет доступа.");
+                // Если у тебя только синхронный метод:
+                // _bot.AnswerCallbackQuery(query.Id, "Нет доступа");
+                await _bot.AnswerCallbackQuery(query.Id, "Нет доступа");
                 return;
             }
 
-            string data = query.Data!;
+            string data = query.Data ?? string.Empty;
 
-            switch (data)
+            if (data == "adm_edit")
             {
-                case "adm_edit":
-                    await ShowLanguageMenu(uid);
-                    break;
-
-                case "adm_requests":
-                    await ShowRequests(uid);
-                    break;
-
-                case "adm_reload":
-                    _textService.ReloadAll();
-                    await _bot.SendMessage(uid, "Тексты перезагружены ✔");
-                    break;
-
-                default:
-                    await _bot.SendMessage(uid, $"Неизвестная команда: {data}");
-                    break;
+                // Нажали кнопку "Редактировать тексты"
+                await ShowLanguageMenu(uid);
+            }
+            else if (data == "adm_requests")
+            {
+                // Нажали "Просмотр заявок"
+                await ShowRequests(uid);
+            }
+            else if (data == "adm_reload")
+            {
+                // Перезагрузить тексты из файлов
+                _textService.ReloadAll();
+                await _bot.SendMessage(uid, "Тексты перезагружены ✔");
+            }
+            else if (data.StartsWith("adm_lang_"))
+            {
+                // Выбор языка для редактирования (adm_lang_ru / adm_lang_ua / adm_lang_en / adm_lang_ar)
+                string langCode = data.Substring("adm_lang_".Length); // ru / ua / en / ar
+                await ShowSectionMenu(uid, langCode);
+            }
+            else if (data.StartsWith("adm_sec_"))
+            {
+                // Выбор раздела (adm_sec_about / adm_sec_services / ...)
+                string sectionKey = data.Substring("adm_sec_".Length); // about / services / cases / cooperation / contact / interested
+                await StartEditSection(uid, sectionKey);
             }
 
+            // Ответ на клик по кнопке (чтобы в ТГ "часики" пропали)
+            // Если у тебя только синхронный метод, поменяй на _bot.AnswerCallbackQuery(query.Id);
             await _bot.AnswerCallbackQuery(query.Id);
         }
 
-        private async Task ShowSectionMenu(long chatId, string langCode)
-        {
-            // сохраняем выбранный язык
-            _adminState[chatId] = new AdminState
-            {
-                Step = "select_section",
-                SelectedLanguage = langCode.Replace("adm_lang_", "")
-            };
+        //private async Task ShowSectionMenu(long chatId, string langCode)
+        //{
+        //    // сохраняем выбранный язык
+        //    _adminState[chatId] = new AdminState
+        //    {
+        //        Step = "select_section",
+        //        SelectedLanguage = langCode.Replace("adm_lang_", "")
+        //    };
 
-            var kb = new InlineKeyboardMarkup(new[]
-            {
-                new [] { InlineKeyboardButton.WithCallbackData("О нас", "adm_sec_about") },
-                new [] { InlineKeyboardButton.WithCallbackData("Услуги / Цены", "adm_sec_services") },
-                new [] { InlineKeyboardButton.WithCallbackData("Кейсы", "adm_sec_cases") },
-                new [] { InlineKeyboardButton.WithCallbackData("Сотрудничество", "adm_sec_partners") },
-                new [] { InlineKeyboardButton.WithCallbackData("Связаться с нами", "adm_sec_contact") },
-                new [] { InlineKeyboardButton.WithCallbackData("Текст кнопки 'Заинтересован'", "adm_sec_interested") }
-            });
+        //    var kb = new InlineKeyboardMarkup(new[]
+        //    {
+        //        new [] { InlineKeyboardButton.WithCallbackData("О нас", "adm_sec_about") },
+        //        new [] { InlineKeyboardButton.WithCallbackData("Услуги / Цены", "adm_sec_services") },
+        //        new [] { InlineKeyboardButton.WithCallbackData("Кейсы", "adm_sec_cases") },
+        //        new [] { InlineKeyboardButton.WithCallbackData("Сотрудничество", "adm_sec_partners") },
+        //        new [] { InlineKeyboardButton.WithCallbackData("Связаться с нами", "adm_sec_contact") },
+        //        new [] { InlineKeyboardButton.WithCallbackData("Текст кнопки 'Заинтересован'", "adm_sec_interested") }
+        //    });
 
-            await _bot.SendMessage(
-                chatId,
-                $"Выберите раздел ({_adminState[chatId].SelectedLanguage}):",
-                replyMarkup: kb
-            );
-        }
-
-
-        private async Task ShowLanguageMenu(long chatId)
-        {
-            var kb = new InlineKeyboardMarkup(new[]
-            {
-                new [] { InlineKeyboardButton.WithCallbackData("🇷🇺 Русский", "adm_lang_ru") },
-                new [] { InlineKeyboardButton.WithCallbackData("🇺🇦 Українська", "adm_lang_ua") },
-                new [] { InlineKeyboardButton.WithCallbackData("🇬🇧 English", "adm_lang_en") },
-                new [] { InlineKeyboardButton.WithCallbackData("🇦🇪 العربية", "adm_lang_ar") }
-            });
-
-            await _bot.SendMessage(chatId, "Выберите язык:", replyMarkup: kb);
-        }
+        //    await _bot.SendMessage(
+        //        chatId,
+        //        $"Выберите раздел ({_adminState[chatId].SelectedLanguage}):",
+        //        replyMarkup: kb
+        //    );
+        //}
+        
 
         private async Task ShowRequests(long chatId)
         {
@@ -158,6 +160,78 @@ namespace _1WinTrafficBot.Bot
                 replyMarkup: kb
             );
         }
+
+        private async Task ShowLanguageMenu(long chatId)
+        {
+            var kb = new InlineKeyboardMarkup(new[]
+            {
+                new [] { InlineKeyboardButton.WithCallbackData("🇷🇺 Русский", "adm_lang_ru") },
+                new [] { InlineKeyboardButton.WithCallbackData("🇺🇦 Українська", "adm_lang_ua") },
+                new [] { InlineKeyboardButton.WithCallbackData("🇬🇧 English", "adm_lang_en") },
+                new [] { InlineKeyboardButton.WithCallbackData("🇦🇪 العربية", "adm_lang_ar") }
+            });
+
+            await _bot.SendMessage(chatId, "Выберите язык:", replyMarkup: kb);
+        }
+
+        private async Task ShowSectionMenu(long chatId, string langCode)
+        {
+            // Запоминаем, какой язык сейчас редактирует админ
+            _adminEdits[chatId] = new AdminEditState
+            {
+                LanguageCode = langCode
+            };
+
+            var kb = new InlineKeyboardMarkup(new[]
+            {
+                new [] { InlineKeyboardButton.WithCallbackData("О нас", "adm_sec_about") },
+                new [] { InlineKeyboardButton.WithCallbackData("Услуги / Цены", "adm_sec_services") },
+                new [] { InlineKeyboardButton.WithCallbackData("Кейсы", "adm_sec_cases") },
+                new [] { InlineKeyboardButton.WithCallbackData("Сотрудничество", "adm_sec_cooperation") },
+                new [] { InlineKeyboardButton.WithCallbackData("Связаться с нами", "adm_sec_contact") },
+                new [] { InlineKeyboardButton.WithCallbackData("Текст \"Заинтересован\"", "adm_sec_interested") }
+            });
+
+            await _bot.SendMessage(
+                chatId,
+                $"Язык: {langCode.ToUpper()}\nВыберите раздел, который хотите изменить:",
+                replyMarkup: kb
+            );
+        }
+
+        private async Task StartEditSection(long chatId, string sectionKey)
+        {
+            if (!_adminEdits.TryGetValue(chatId, out var state))
+            {
+                // На всякий случай, если по какой-то причине состояния нет
+                state = new AdminEditState { LanguageCode = "ru" };
+                _adminEdits[chatId] = state;
+            }
+
+            state.SectionKey = sectionKey;
+
+            var texts = _textService.GetTexts(state.LanguageCode);
+
+            string current = sectionKey switch
+            {
+                "about" => texts.About,
+                "services" => texts.Services,
+                "cases" => texts.Cases,
+                "cooperation" => texts.Cooperation,
+                "contact" => texts.Contact,
+                "interested" => texts.Interested,
+                _ => ""
+            };
+
+            await _bot.SendMessage(
+                chatId,
+                $"Сейчас в разделе *{sectionKey}* (язык: {state.LanguageCode.ToUpper()}):\n\n" +
+                $"{current}\n\n" +
+                "👉 Отправьте мне НОВЫЙ текст одним сообщением.",
+                parseMode: Telegram.Bot.Types.Enums.ParseMode.Markdown
+            );
+        }
+
 
         // Обработка текстовых сообщений
         private async Task HandleMessage(Message msg)
