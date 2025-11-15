@@ -52,5 +52,11 @@ namespace _1WinTrafficBot.Services
             // fallback — если язык не найден, используем русский
             return _texts["ru"];
         }
+
+        public void ReloadAll()
+        {
+            _texts.Clear();
+            LoadAllLanguages();
+        }
     }
 }

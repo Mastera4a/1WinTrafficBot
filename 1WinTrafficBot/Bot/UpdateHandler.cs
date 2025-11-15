@@ -1,10 +1,12 @@
 ﻿using _1WinTrafficBot.Bot;
-using _1WinTrafficBot.Services;
 using _1WinTrafficBot.Bot;
+using _1WinTrafficBot.Models;
+using _1WinTrafficBot.Services;
 using _1WinTrafficBot.Services;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
+using Telegram.Bot.Types.ReplyMarkups;
 
 namespace _1WinTrafficBot.Bot
 {
@@ -12,6 +14,14 @@ namespace _1WinTrafficBot.Bot
     {
         private readonly ITelegramBotClient _bot;
         private readonly TextService _textService;
+        private readonly Dictionary<long, AdminState> _adminState = new();
+
+
+        private readonly HashSet<long> _admins = new()
+        {
+            559541816, // ← твой ID
+            7296468013  // ← ID менеджера (если нужно)
+        };
 
         // Храним язык для каждого user_id
         private readonly Dictionary<long, string> _userLang = new();
@@ -32,6 +42,121 @@ namespace _1WinTrafficBot.Bot
             {
                 await HandleMessage(update.Message);
             }
+
+            // Обработка INLINE-кнопок (админ-панель)
+            if (update.Type == UpdateType.CallbackQuery)
+            {
+                await HandleCallback(update.CallbackQuery!);
+            }
+        }
+
+        private async Task HandleCallback(CallbackQuery query)
+        {
+            long uid = query.From.Id;
+
+            // Проверяем — это админ?
+            if (!_admins.Contains(uid))
+            {
+                await _bot.AnswerCallbackQuery(query.Id, "Нет доступа.");
+                return;
+            }
+
+            string data = query.Data!;
+
+            switch (data)
+            {
+                case "adm_edit":
+                    await ShowLanguageMenu(uid);
+                    break;
+
+                case "adm_requests":
+                    await ShowRequests(uid);
+                    break;
+
+                case "adm_reload":
+                    _textService.ReloadAll();
+                    await _bot.SendMessage(uid, "Тексты перезагружены ✔");
+                    break;
+
+                default:
+                    await _bot.SendMessage(uid, $"Неизвестная команда: {data}");
+                    break;
+            }
+
+            await _bot.AnswerCallbackQuery(query.Id);
+        }
+
+        private async Task ShowSectionMenu(long chatId, string langCode)
+        {
+            // сохраняем выбранный язык
+            _adminState[chatId] = new AdminState
+            {
+                Step = "select_section",
+                SelectedLanguage = langCode.Replace("adm_lang_", "")
+            };
+
+            var kb = new InlineKeyboardMarkup(new[]
+            {
+                new [] { InlineKeyboardButton.WithCallbackData("О нас", "adm_sec_about") },
+                new [] { InlineKeyboardButton.WithCallbackData("Услуги / Цены", "adm_sec_services") },
+                new [] { InlineKeyboardButton.WithCallbackData("Кейсы", "adm_sec_cases") },
+                new [] { InlineKeyboardButton.WithCallbackData("Сотрудничество", "adm_sec_partners") },
+                new [] { InlineKeyboardButton.WithCallbackData("Связаться с нами", "adm_sec_contact") },
+                new [] { InlineKeyboardButton.WithCallbackData("Текст кнопки 'Заинтересован'", "adm_sec_interested") }
+            });
+
+            await _bot.SendMessage(
+                chatId,
+                $"Выберите раздел ({_adminState[chatId].SelectedLanguage}):",
+                replyMarkup: kb
+            );
+        }
+
+
+        private async Task ShowLanguageMenu(long chatId)
+        {
+            var kb = new InlineKeyboardMarkup(new[]
+            {
+                new [] { InlineKeyboardButton.WithCallbackData("🇷🇺 Русский", "adm_lang_ru") },
+                new [] { InlineKeyboardButton.WithCallbackData("🇺🇦 Українська", "adm_lang_ua") },
+                new [] { InlineKeyboardButton.WithCallbackData("🇬🇧 English", "adm_lang_en") },
+                new [] { InlineKeyboardButton.WithCallbackData("🇦🇪 العربية", "adm_lang_ar") }
+            });
+
+            await _bot.SendMessage(chatId, "Выберите язык:", replyMarkup: kb);
+        }
+
+        private async Task ShowRequests(long chatId)
+        {
+            string path = Path.Combine("Data", "requests.json");
+
+            if (!File.Exists(path))
+            {
+                await _bot.SendMessage(chatId, "Заявок пока нет.");
+                return;
+            }
+
+            string json = File.ReadAllText(path);
+
+            await _bot.SendMessage(chatId,
+                $"Заявки:\n\n{json.Substring(0, Math.Min(json.Length, 4000))}");
+        }        
+
+
+        private async Task ShowAdminMenu(long chatId)
+        {
+            var kb = new InlineKeyboardMarkup(new[]
+            {
+                new [] { InlineKeyboardButton.WithCallbackData("📝 Редактировать тексты", "adm_edit") },
+                new [] { InlineKeyboardButton.WithCallbackData("📂 Просмотр заявок", "adm_requests") },
+                new [] { InlineKeyboardButton.WithCallbackData("🔄 Перезагрузить тексты", "adm_reload") }
+            });
+
+            await _bot.SendMessage(
+                chatId,
+                "Меню администратора:",
+                replyMarkup: kb
+            );
         }
 
         // Обработка текстовых сообщений
@@ -54,6 +179,21 @@ namespace _1WinTrafficBot.Bot
                     text: "Выберите язык:",
                     replyMarkup: Keyboard.LanguageMenu()
                 );
+                return;
+            }
+
+            // Команда /admin (вход в админ-панель)
+            if (text == "/admin")
+            {
+                // Проверяем — админ ли этот пользователь
+                if (!_admins.Contains(msg.Chat.Id))
+                {
+                    await _bot.SendMessage(msg.Chat.Id, "У вас нет доступа.");
+                    return;
+                }
+
+                // Показываем меню администратора
+                await ShowAdminMenu(msg.Chat.Id);
                 return;
             }
 
@@ -169,7 +309,7 @@ namespace _1WinTrafficBot.Bot
                 text: managerNotify,
                 parseMode: Telegram.Bot.Types.Enums.ParseMode.Markdown
             );
-        }
+        }        
 
         // Проверка RU/UA/EN/AR
         private bool IsLanguageCode(string txt)
