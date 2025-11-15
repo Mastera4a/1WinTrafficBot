@@ -3,6 +3,7 @@ using _1WinTrafficBot.Bot;
 using _1WinTrafficBot.Models;
 using _1WinTrafficBot.Services;
 using _1WinTrafficBot.Services;
+using System.Text.Json;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
@@ -232,12 +233,77 @@ namespace _1WinTrafficBot.Bot
             );
         }
 
+        private async Task SaveSectionText(long chatId, string langCode, string sectionKey, string newText)
+        {
+            string path = Path.Combine("Data", $"texts.{langCode}.json");
+
+            if (!File.Exists(path))
+            {
+                await _bot.SendMessage(chatId, $"Файл {path} не найден.");
+                return;
+            }
+
+            string json = File.ReadAllText(path);
+            SectionTexts? data = JsonSerializer.Deserialize<SectionTexts>(json);
+
+            if (data == null)
+            {
+                await _bot.SendMessage(chatId, "Не удалось прочитать JSON.");
+                return;
+            }
+
+            switch (sectionKey)
+            {
+                case "about":
+                    data.About = newText;
+                    break;
+                case "services":
+                    data.Services = newText;
+                    break;
+                case "cases":
+                    data.Cases = newText;
+                    break;
+                case "cooperation":
+                    data.Cooperation = newText;
+                    break;
+                case "contact":
+                    data.Contact = newText;
+                    break;
+                case "interested":
+                    data.Interested = newText;
+                    break;
+            }
+
+            string newJson = JsonSerializer.Serialize(
+                data,
+                new JsonSerializerOptions { WriteIndented = true }
+            );
+
+            File.WriteAllText(path, newJson);
+
+            // Перезагрузить тексты в работающем боте
+            _textService.ReloadAll();
+
+            await _bot.SendMessage(
+                chatId,
+                $"Текст раздела *{sectionKey}* для языка {langCode.ToUpper()} успешно обновлён ✅",
+                parseMode: Telegram.Bot.Types.Enums.ParseMode.Markdown
+            );
+        }
 
         // Обработка текстовых сообщений
         private async Task HandleMessage(Message msg)
         {
             long userId = msg.Chat.Id;
             string text = msg.Text!;
+
+            // Если это админ и он сейчас редактирует раздел — воспринимаем сообщение как новый текст
+            if (_admins.Contains(userId) && _adminEdits.TryGetValue(userId, out var editState) && !string.IsNullOrEmpty(editState.SectionKey))
+            {
+                await SaveSectionText(userId, editState.LanguageCode, editState.SectionKey, text);
+                _adminEdits.Remove(userId); // Сбросить состояние
+                return;
+            }
 
             // Если язык ещё не выбран – ставим RU по умолчанию
             if (!_userLang.ContainsKey(userId))
