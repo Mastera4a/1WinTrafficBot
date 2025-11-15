@@ -6,7 +6,7 @@ namespace _1WinTrafficBot.Models
 {
     public class RequestInfo
     {
-        public long TelegramId { get; set; }
+        public long UserId { get; set; }
         public string? Username { get; set; }
         public string? FirstName { get; set; }
         public string Language { get; set; } = "ru";

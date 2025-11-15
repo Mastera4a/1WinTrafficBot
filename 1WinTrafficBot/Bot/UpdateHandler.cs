@@ -57,48 +57,81 @@ namespace _1WinTrafficBot.Bot
         {
             long uid = query.From.Id;
 
-            // Проверяем, что это админ
+            // Проверяем прав администратора
             if (!_admins.Contains(uid))
             {
-                // Если у тебя только синхронный метод:
-                // _bot.AnswerCallbackQuery(query.Id, "Нет доступа");
-                await _bot.AnswerCallbackQuery(query.Id, "Нет доступа");
+                await _bot.AnswerCallbackQuery(query.Id);
                 return;
             }
 
             string data = query.Data ?? string.Empty;
 
-            if (data == "adm_edit")
+            switch (data)
             {
-                // Нажали кнопку "Редактировать тексты"
-                await ShowLanguageMenu(uid);
-            }
-            else if (data == "adm_requests")
-            {
-                // Нажали "Просмотр заявок"
-                await ShowRequests(uid);
-            }
-            else if (data == "adm_reload")
-            {
-                // Перезагрузить тексты из файлов
-                _textService.ReloadAll();
-                await _bot.SendMessage(uid, "Тексты перезагружены ✔");
-            }
-            else if (data.StartsWith("adm_lang_"))
-            {
-                // Выбор языка для редактирования (adm_lang_ru / adm_lang_ua / adm_lang_en / adm_lang_ar)
-                string langCode = data.Substring("adm_lang_".Length); // ru / ua / en / ar
-                await ShowSectionMenu(uid, langCode);
-            }
-            else if (data.StartsWith("adm_sec_"))
-            {
-                // Выбор раздела (adm_sec_about / adm_sec_services / ...)
-                string sectionKey = data.Substring("adm_sec_".Length); // about / services / cases / cooperation / contact / interested
-                await StartEditSection(uid, sectionKey);
+                // === ГЛАВНОЕ МЕНЮ АДМИНА ===
+                case "adm_edit":
+                    await ShowLanguageMenu(uid);
+                    break;
+
+                case "adm_requests":
+                    await ShowRequests(uid);
+                    break;
+
+                case "adm_reload":
+                    _textService.ReloadAll();
+                    await _bot.SendMessage(uid, "Тексты перезагружены ✔");
+                    break;
+
+
+                // === ВЫБОР ЯЗЫКА ===
+                case "adm_lang_ru":
+                    await ShowSectionMenu(uid, "ru");
+                    break;
+
+                case "adm_lang_ua":
+                    await ShowSectionMenu(uid, "ua");
+                    break;
+
+                case "adm_lang_en":
+                    await ShowSectionMenu(uid, "en");
+                    break;
+
+                case "adm_lang_ar":
+                    await ShowSectionMenu(uid, "ar");
+                    break;
+
+
+                // === ВЫБОР РАЗДЕЛА ===
+                case "adm_sec_about":
+                    await StartEditSection(uid, "about");
+                    break;
+
+                case "adm_sec_services":
+                    await StartEditSection(uid, "services");
+                    break;
+
+                case "adm_sec_cases":
+                    await StartEditSection(uid, "cases");
+                    break;
+
+                case "adm_sec_cooperation":
+                    await StartEditSection(uid, "cooperation");
+                    break;
+
+                case "adm_sec_contact":
+                    await StartEditSection(uid, "contact");
+                    break;
+
+                case "adm_sec_interested":
+                    await StartEditSection(uid, "interested");
+                    break;
+
+                default:
+                    await _bot.SendMessage(uid, $"Неизвестная команда: {data}");
+                    break;
             }
 
-            // Ответ на клик по кнопке (чтобы в ТГ "часики" пропали)
-            // Если у тебя только синхронный метод, поменяй на _bot.AnswerCallbackQuery(query.Id);
+            // Обязательный ответ Telegram, чтобы убрать "часики"
             await _bot.AnswerCallbackQuery(query.Id);
         }
 
@@ -127,7 +160,7 @@ namespace _1WinTrafficBot.Bot
         //        replyMarkup: kb
         //    );
         //}
-        
+
 
         private async Task ShowRequests(long chatId)
         {
@@ -141,9 +174,11 @@ namespace _1WinTrafficBot.Bot
 
             string json = File.ReadAllText(path);
 
-            await _bot.SendMessage(chatId,
-                $"Заявки:\n\n{json.Substring(0, Math.Min(json.Length, 4000))}");
-        }        
+            await _bot.SendMessage(
+                chatId,
+                $"Заявки:\n\n{json.Substring(0, Math.Min(json.Length, 4000))}"
+            );
+        }
 
 
         private async Task ShowAdminMenu(long chatId)
@@ -396,6 +431,43 @@ namespace _1WinTrafficBot.Bot
             }
         }
 
+        private void SaveRequest(RequestInfo req)
+        {
+            string path = Path.Combine("Data", "requests.json");
+
+            List<RequestInfo> list;
+
+            // Если файла нет → создаём новый список
+            if (!File.Exists(path))
+            {
+                list = new List<RequestInfo>();
+            }
+            else
+            {
+                string json = File.ReadAllText(path);
+
+                try
+                {
+                    list = JsonSerializer.Deserialize<List<RequestInfo>>(json) ??
+                           new List<RequestInfo>();
+                }
+                catch
+                {
+                    list = new List<RequestInfo>();
+                }
+            }
+
+            // Добавляем новую заявку в список
+            list.Add(req);
+
+            // Сохраняем обратно в файл
+            File.WriteAllText(
+                path,
+                JsonSerializer.Serialize(list, new JsonSerializerOptions { WriteIndented = true })
+            );
+        }
+
+
         // Отправить текст раздела
         private async Task SendSection(long chatId, string lang, string key)
         {
@@ -434,6 +506,17 @@ namespace _1WinTrafficBot.Bot
 
             // 2) Фиксация интереса (в будущем можно записывать в JSON/БД)
             Console.WriteLine($"[INTEREST] User {msg.Chat.Id} ({msg.Chat.Username}) is interested.");
+
+            var req = new RequestInfo
+            {
+                UserId = msg.Chat.Id,
+                Username = msg.Chat.Username,
+                FirstName = msg.Chat.FirstName,
+                Language = lang,
+                Date = DateTime.UtcNow
+            };
+
+            SaveRequest(req);
 
             // 3) Уведомление менеджеру
             string managerNotify =
