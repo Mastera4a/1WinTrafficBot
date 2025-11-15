@@ -1,141 +1,210 @@
-﻿using Telegram.Bot;
+﻿using _1WinTrafficBot.Bot;
+using _1WinTrafficBot.Services;
+using _1WinTrafficBot.Bot;
+using _1WinTrafficBot.Services;
+using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
-using System.Threading.Tasks;
 
 namespace _1WinTrafficBot.Bot
 {
     public class UpdateHandler
     {
-        private readonly ITelegramBotClient _botClient; // Сюда мы помещаем объект бота
-        private readonly string _managerUsername = "@ofm_1win"; // Ник менеджера для уведомлений
+        private readonly ITelegramBotClient _bot;
+        private readonly TextService _textService;
 
-        // Конструктор класса
-        public UpdateHandler(ITelegramBotClient botClient)
+        // Храним язык для каждого user_id
+        private readonly Dictionary<long, string> _userLang = new();
+
+        // Telegram менеджера (получает заявки)
+        private readonly long _managerId = 123456789; // ← ПОМЕНЯЙ!
+
+        public UpdateHandler(ITelegramBotClient bot, TextService textService)
         {
-            _botClient = botClient;
+            _bot = bot;
+            _textService = textService;
         }
 
-        // Основной метод, который вызывается при любом обновлении (сообщении)
-        public async Task HandleUpdateAsync(Update update)
+        // Основной метод — вызывается каждый раз при обновлении
+        public async Task HandleAsync(Update update)
         {
-            // Проверяем, что обновление — это сообщение от пользователя
-            if (update.Type != UpdateType.Message) return;
-            var message = update.Message;
+            if (update.Type == UpdateType.Message && update.Message!.Text != null)
+            {
+                await HandleMessage(update.Message);
+            }
+        }
 
-            // Проверяем, что сообщение текстовое
-            if (message.Type != MessageType.Text) return;
+        // Обработка текстовых сообщений
+        private async Task HandleMessage(Message msg)
+        {
+            long userId = msg.Chat.Id;
+            string text = msg.Text!;
 
-            string text = message.Text; // Сохраняем текст пользователя в переменную
+            // Если язык ещё не выбран – ставим RU по умолчанию
+            if (!_userLang.ContainsKey(userId))
+                _userLang[userId] = "ru";
 
-            // Обработка команд/кнопок
+            string lang = _userLang[userId];
+
+            // ОБРАБОТКА КНОПКИ СМЕНЫ ЯЗЫКА
+            if (text == Translate("language", lang))
+            {
+                await _bot.SendMessage(
+                    chatId: userId,
+                    text: "Выберите язык:",
+                    replyMarkup: Keyboard.LanguageMenu()
+                );
+                return;
+            }
+
+            // Пользователь выбрал язык — RU / UA / EN / AR
+            if (IsLanguageCode(text))
+            {
+                lang = ConvertLanguage(text);
+                _userLang[userId] = lang;
+
+                await _bot.SendMessage(
+                    chatId: userId,
+                    text: GetStartMessage(lang),
+                    replyMarkup: Keyboard.MainMenu(lang)
+                );
+                return;
+            }
+
+            // ОБРАБОТКА РАЗДЕЛОВ
             switch (text)
             {
-                case "О нас":
-                    await _botClient.SendMessage(
-                        chatId: message.Chat.Id,
-                        text: "1WIN TRAFFIC — агентство, которое даёт OnlyFans-моделям реальный доход...",
-                        replyMarkup: Keyboard.MainMenuKeyboard() // Показываем главное меню
-                    );
+                case var _ when text == Translate("about", lang):
+                    await SendSection(userId, lang, "About");
                     break;
 
-                case "Услуги / Цены":
-                    await _botClient.SendMessage(
-                        chatId: message.Chat.Id,
-                        text: "Мы закрываем весь трафик под ключ...\nСтоимость ведения — 1100$/мес",
-                        replyMarkup: Keyboard.MainMenuKeyboard()
-                    );
+                case var _ when text == Translate("services", lang):
+                    await SendSection(userId, lang, "Services");
                     break;
 
-                case "Кейсы":
-                    await _botClient.SendMessage(
-                        chatId: message.Chat.Id,
-                        text: "Наши кейсы — рост подписчиков в 4–8 раз, увеличение дохода в 2–5 раз...",
-                        replyMarkup: Keyboard.MainMenuKeyboard()
-                    );
+                case var _ when text == Translate("cases", lang):
+                    await SendSection(userId, lang, "Cases");
                     break;
 
-                case "Сотрудничество":
-                    await _botClient.SendMessage(
-                        chatId: message.Chat.Id,
-                        text: "Работать с нами — значит расти. Преимущества: быстрый запуск, прозрачная работа, поддержка 24/7...",
-                        replyMarkup: Keyboard.MainMenuKeyboard()
-                    );
+                case var _ when text == Translate("cooperation", lang):
+                    await SendSection(userId, lang, "Cooperation");
                     break;
 
-                case "Связаться с нами":
-                    await _botClient.SendMessage(
-                        chatId: message.Chat.Id,
-                        text: "Напиши нам — Telegram менеджера: @ofm_1win",
-                        replyMarkup: Keyboard.MainMenuKeyboard()
-                    );
+                case var _ when text == Translate("contact", lang):
+                    await SendSection(userId, lang, "Contact");
                     break;
 
-                case "Заинтересован":
-                    // Отправляем пользователю кнопку для уведомления менеджера
-                    await _botClient.SendMessage(
-                        chatId: message.Chat.Id,
-                        text: "Нажмите 'Отправить контакт', чтобы уведомить менеджера.",
-                        replyMarkup: Keyboard.InterestedKeyboard()
-                    );
+                case var _ when text == Translate("interested", lang):
+                    await HandleInterest(msg);
                     break;
 
-                case "Отправить контакт":
-                    // Сообщение менеджеру
-                    string managerMessage = $"Пользователь заинтересован!\n" +
-                                            $"Имя: {message.From.FirstName}\n" +
-                                            $"Username: @{message.From.Username}\n" +
-                                            $"ID: {message.From.Id}";
-                    await _botClient.SendMessage(
-                        chatId: _managerUsername,
-                        text: managerMessage
-                    );
-
-                    // Подтверждение пользователю
-                    await _botClient.SendMessage(
-                        chatId: message.Chat.Id,
-                        text: "Менеджер получил ваш сигнал. Спасибо!",
-                        replyMarkup: Keyboard.MainMenuKeyboard()
-                    );
-                    break;
-
-                case "Сменить язык":
-                    await _botClient.SendMessage(
-                        chatId: message.Chat.Id,
-                        text: "Выберите язык:",
-                        replyMarkup: Keyboard.LanguageKeyboard()
-                    );
-                    break;
-
-                case "Русский":
-                case "Українська":
-                case "English":
-                case "عربي":
-                    // Здесь можно добавить переключение языков (на будущее)
-                    await _botClient.SendMessage(
-                        chatId: message.Chat.Id,
-                        text: $"Вы выбрали язык: {text}",
-                        replyMarkup: Keyboard.MainMenuKeyboard()
-                    );
-                    break;
-
-                case "Назад":
-                    await _botClient.SendMessage(
-                        chatId: message.Chat.Id,
-                        text: "Возврат в главное меню",
-                        replyMarkup: Keyboard.MainMenuKeyboard()
+                case var _ when text == Translate("back", lang):
+                    await _bot.SendMessage(
+                        chatId: userId,
+                        text: GetStartMessage(lang),
+                        replyMarkup: Keyboard.MainMenu(lang)
                     );
                     break;
 
                 default:
-                    // Если пользователь пишет что-то неожиданное
-                    await _botClient.SendMessage(
-                        chatId: message.Chat.Id,
-                        text: "Пожалуйста, выберите пункт меню.",
-                        replyMarkup: Keyboard.MainMenuKeyboard()
+                    await _bot.SendMessage(
+                        chatId: userId,
+                        text: GetStartMessage(lang),
+                        replyMarkup: Keyboard.MainMenu(lang)
                     );
                     break;
             }
+        }
+
+        // Отправить текст раздела
+        private async Task SendSection(long chatId, string lang, string key)
+        {
+            var texts = _textService.GetTexts(lang);
+            string message = key switch
+            {
+                "About" => texts.About,
+                "Services" => texts.Services,
+                "Cases" => texts.Cases,
+                "Cooperation" => texts.Cooperation,
+                "Contact" => texts.Contact,
+                _ => "Unknown section"
+            };
+
+            await _bot.SendMessage(
+                chatId: chatId,
+                text: message,
+                replyMarkup: Keyboard.SectionMenu(lang)
+            );
+        }
+
+        // Обработка "Заинтересован"
+        private async Task HandleInterest(Message msg)
+        {
+            long userId = msg.Chat.Id;
+            string lang = _userLang[userId];
+
+            // 1. Сообщение пользователю
+            var texts = _textService.GetTexts(lang);
+
+            await _bot.SendMessage(
+                chatId: userId,
+                text: texts.Interested,
+                replyMarkup: Keyboard.MainMenu(lang)
+            );
+
+            // 2. Уведомление менеджеру
+            string notify =
+                $"🔥 НОВАЯ ЗАЯВКА\n" +
+                $"Имя: {msg.Chat.FirstName}\n" +
+                $"Username: @{msg.Chat.Username}\n" +
+                $"ID: {msg.Chat.Id}\n" +
+                $"Язык интерфейса: {lang}";
+
+            await _bot.SendMessage(
+                chatId: _managerId,
+                text: notify
+            );
+        }
+
+        // Проверка RU/UA/EN/AR
+        private bool IsLanguageCode(string txt)
+        {
+            return txt == "RU" || txt == "UA" || txt == "EN" || txt == "AR";
+        }
+
+        // Конвертация RU → ru
+        private string ConvertLanguage(string code)
+        {
+            return code switch
+            {
+                "RU" => "ru",
+                "UA" => "ua",
+                "EN" => "en",
+                "AR" => "ar",
+                _ => "ru"
+            };
+        }
+
+        // Текст приветствия
+        private string GetStartMessage(string lang)
+        {
+            return lang switch
+            {
+                "ru" => "Добро пожаловать! Выберите нужный раздел:",
+                "ua" => "Вітаємо! Оберіть розділ:",
+                "en" => "Welcome! Choose a section:",
+                "ar" => "مرحبًا! اختر القسم:",
+                _ => "Welcome!"
+            };
+        }
+
+        // То же Translate что и в Keyboard.cs
+        private string Translate(string key, string lang)
+        {
+            return Keyboard.MainMenu(lang).Keyboard!
+                .SelectMany(row => row)
+                .Select(b => b.Text)
+                .FirstOrDefault(t => t == key) ?? key;
         }
     }
 }
