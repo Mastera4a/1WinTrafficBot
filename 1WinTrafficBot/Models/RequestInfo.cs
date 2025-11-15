@@ -4,7 +4,12 @@ using System.Text;
 
 namespace _1WinTrafficBot.Models
 {
-    internal class RequestInfo
+    public class RequestInfo
     {
+        public long TelegramId { get; set; }
+        public string? Username { get; set; }
+        public string? FirstName { get; set; }
+        public string Language { get; set; } = "ru";
+        public DateTime Date { get; set; } = DateTime.UtcNow;
     }
 }
