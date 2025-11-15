@@ -12,9 +12,7 @@ namespace _1WinTrafficBot
 
             Console.WriteLine("=== 1WIN TRAFFIC BOT ===");
 
-            // 🔹 Считываем токен
-            Console.Write("Введите токен бота: ");
-            string token = Console.ReadLine()!.Trim();
+            string token = "8255765312:AAHYM-VXe1Jyfc8Dlkkjavox33YKA4Gt604";
 
             if (string.IsNullOrEmpty(token))
             {
