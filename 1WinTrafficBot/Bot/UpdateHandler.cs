@@ -201,10 +201,82 @@ namespace _1WinTrafficBot.Bot
         // То же Translate что и в Keyboard.cs
         private string Translate(string key, string lang)
         {
-            return Keyboard.MainMenu(lang).Keyboard!
-                .SelectMany(row => row)
-                .Select(b => b.Text)
-                .FirstOrDefault(t => t == key) ?? key;
+            return key switch
+            {
+                "interested" => lang switch
+                {
+                    "ru" => "Заинтересован",
+                    "ua" => "Зацікавлений",
+                    "en" => "Interested",
+                    "ar" => "مهتم",
+                    _ => "Interested"
+                },
+
+                "about" => lang switch
+                {
+                    "ru" => "О нас",
+                    "ua" => "Про нас",
+                    "en" => "About us",
+                    "ar" => "معلومات عنا",
+                    _ => "About us"
+                },
+
+                "services" => lang switch
+                {
+                    "ru" => "Услуги / Цены",
+                    "ua" => "Послуги / Ціни",
+                    "en" => "Services / Prices",
+                    "ar" => "الخدمات / الأسعار",
+                    _ => "Services"
+                },
+
+                "cases" => lang switch
+                {
+                    "ru" => "Кейсы",
+                    "ua" => "Кейси",
+                    "en" => "Cases",
+                    "ar" => "الأمثلة",
+                    _ => "Cases"
+                },
+
+                "cooperation" => lang switch
+                {
+                    "ru" => "Сотрудничество",
+                    "ua" => "Співпраця",
+                    "en" => "Cooperation",
+                    "ar" => "التعاون",
+                    _ => "Cooperation"
+                },
+
+                "contact" => lang switch
+                {
+                    "ru" => "Связаться с нами",
+                    "ua" => "Звʼязатися з нами",
+                    "en" => "Contact us",
+                    "ar" => "اتصل بنا",
+                    _ => "Contact us"
+                },
+
+                "language" => lang switch
+                {
+                    "ru" => "Сменить язык",
+                    "ua" => "Змінити мову",
+                    "en" => "Change language",
+                    "ar" => "تغيير اللغة",
+                    _ => "Language"
+                },
+
+                "back" => lang switch
+                {
+                    "ru" => "⬅ Назад",
+                    "ua" => "⬅ Назад",
+                    "en" => "⬅ Back",
+                    "ar" => "⬅ رجوع",
+                    _ => "⬅ Back"
+                },
+
+                _ => key
+            };
         }
     }
 }

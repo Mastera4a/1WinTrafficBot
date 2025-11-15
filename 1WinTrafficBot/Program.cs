@@ -1,79 +1,36 @@
-﻿using Microsoft.Extensions.Configuration;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Text.Json;
-using System.Threading;
-using System.Threading.Tasks;
-using Telegram.Bot;
-using Telegram.Bot.Exceptions;
-using Telegram.Bot.Polling;
-using Telegram.Bot.Types;
-using Telegram.Bot.Types.Enums;
-using Telegram.Bot.Types.ReplyMarkups;
+﻿using _1WinTrafficBot.Bot;
+using _1WinTrafficBot.Services;
 
 namespace _1WinTrafficBot
 {
-     // Model for storing localized content
-    public class LocalizedContent
-    {
-        public string LanguageCode { get; set; } = "ru";
-        public Dictionary<string, string> Sections { get; set; } = new();
-    }
 
     internal class Program
     {
-        private static TelegramBotClient bot;
-
         static async Task Main(string[] args)
         {
-            string token = "8255765312:AAHYM-VXe1Jyfc8Dlkkjavox33YKA4Gt604";
+            Console.OutputEncoding = System.Text.Encoding.UTF8;
 
-            bot = new TelegramBotClient(token);
+            Console.WriteLine("=== 1WIN TRAFFIC BOT ===");
 
-            // Проверяем бота
-            var me = await bot.GetMe();
-            Console.WriteLine($"Bot started: @{me.Username}");
+            // 🔹 Считываем токен
+            Console.Write("Введите токен бота: ");
+            string token = Console.ReadLine()!.Trim();
 
-            // Слушаем апдейты вручную
-            while (true)
+            if (string.IsNullOrEmpty(token))
             {
-                var updates = await bot.GetUpdates(offset: _offset, timeout: 20);
-                foreach (var upd in updates)
-                {
-                    _offset = upd.Id + 1;
-                    await HandleUpdate(upd);
-                }
-            }
-        }
-
-        private static int _offset = 0;
-
-        private static async Task HandleUpdate(Update update)
-        {
-            if (update.Type != UpdateType.Message)
+                Console.WriteLine("❌ Ошибка: токен пустой!");
                 return;
-
-            var msg = update.Message;
-            if (msg.Text == null) return;
-
-            Console.WriteLine($"User: {msg.Chat.Id} → {msg.Text}");
-
-            if (msg.Text == "/start")
-            {
-                await bot.SendMessage(
-                    chatId: msg.Chat.Id,
-                    text: "Привет! Бот работает!"
-                );
             }
-            else
-            {
-                await bot.SendMessage(
-                    chatId: msg.Chat.Id,
-                    text: $"Ты написал: {msg.Text}"
-                );
-            }
+
+            // 🔹 Загружаем тексты
+            var textService = new TextService();
+
+            // 🔹 Запускаем бота
+            var botService = new BotService(token, textService);
+            botService.Start();
+
+            Console.WriteLine("Бот работает. Нажмите Enter для выхода…");
+            Console.ReadLine();
         }
     }
 }
