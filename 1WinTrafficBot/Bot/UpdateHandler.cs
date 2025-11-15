@@ -17,7 +17,7 @@ namespace _1WinTrafficBot.Bot
         private readonly Dictionary<long, string> _userLang = new();
 
         // Telegram менеджера (получает заявки)
-        private readonly long _managerId = 123456789; // ← ПОМЕНЯЙ!
+        private readonly long _managerId = 7296468013; // ← ПОМЕНЯЙ!
 
         public UpdateHandler(ITelegramBotClient bot, TextService textService)
         {
@@ -143,26 +143,31 @@ namespace _1WinTrafficBot.Bot
             long userId = msg.Chat.Id;
             string lang = _userLang[userId];
 
-            // 1. Сообщение пользователю
             var texts = _textService.GetTexts(lang);
 
+            // 1) Сообщение пользователю
             await _bot.SendMessage(
                 chatId: userId,
                 text: texts.Interested,
                 replyMarkup: Keyboard.MainMenu(lang)
             );
 
-            // 2. Уведомление менеджеру
-            string notify =
-                $"🔥 НОВАЯ ЗАЯВКА\n" +
-                $"Имя: {msg.Chat.FirstName}\n" +
-                $"Username: @{msg.Chat.Username}\n" +
-                $"ID: {msg.Chat.Id}\n" +
-                $"Язык интерфейса: {lang}";
+            // 2) Фиксация интереса (в будущем можно записывать в JSON/БД)
+            Console.WriteLine($"[INTEREST] User {msg.Chat.Id} ({msg.Chat.Username}) is interested.");
+
+            // 3) Уведомление менеджеру
+            string managerNotify =
+                $"🔥 *НОВАЯ ЗАЯВКА*\n\n" +
+                $"👤 Имя: _{msg.Chat.FirstName}_\n" +
+                $"🔗 Username: @{msg.Chat.Username}\n" +
+                $"🆔 Telegram ID: `{msg.Chat.Id}`\n" +
+                $"🌐 Язык интерфейса: *{lang}*\n\n" +
+                $"Пользователь нажал кнопку \"Заинтересован\".";
 
             await _bot.SendMessage(
                 chatId: _managerId,
-                text: notify
+                text: managerNotify,
+                parseMode: Telegram.Bot.Types.Enums.ParseMode.Markdown
             );
         }
 
