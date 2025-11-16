@@ -349,11 +349,12 @@ namespace _1WinTrafficBot.Bot
             // ОБРАБОТКА КНОПКИ СМЕНЫ ЯЗЫКА
             if (text == Translate("language", lang))
             {
-                await _bot.SendMessage(
-                    chatId: userId,
-                    text: "Выберите язык:",
-                    replyMarkup: Keyboard.LanguageMenu()
-                );
+                //await _bot.SendMessage(
+                //    chatId: userId,
+                //    text: "Выберите язык:",
+                //    replyMarkup: Keyboard.LanguageMenu()
+                //);
+                await SendLanguageMenuWithImage(userId, lang);
                 return;
             }
 
@@ -378,11 +379,12 @@ namespace _1WinTrafficBot.Bot
                 lang = ConvertLanguage(text);
                 _userLang[userId] = lang;
 
-                await _bot.SendMessage(
-                    chatId: userId,
-                    text: GetStartMessage(lang),
-                    replyMarkup: Keyboard.MainMenu(lang)
-                );
+                //await _bot.SendMessage(
+                //    chatId: userId,
+                //    text: GetStartMessage(lang),
+                //    replyMarkup: Keyboard.MainMenu(lang)
+                //);
+                await SendWelcome(userId, lang);
                 return;
             }
 
@@ -414,19 +416,16 @@ namespace _1WinTrafficBot.Bot
                     break;
 
                 case var _ when text == Translate("back", lang):
-                    await _bot.SendMessage(
-                        chatId: userId,
-                        text: GetStartMessage(lang),
-                        replyMarkup: Keyboard.MainMenu(lang)
-                    );
+                    //await _bot.SendMessage(
+                    //    chatId: userId,
+                    //    text: GetStartMessage(lang),
+                    //    replyMarkup: Keyboard.MainMenu(lang)
+                    //);
+                    await SendWelcome(userId, lang);
                     break;
 
                 default:
-                    await _bot.SendMessage(
-                        chatId: userId,
-                        text: GetStartMessage(lang),
-                        replyMarkup: Keyboard.MainMenu(lang)
-                    );
+                    await SendWelcome(userId, lang);
                     break;
             }
         }
@@ -531,6 +530,72 @@ namespace _1WinTrafficBot.Bot
                 );
             }
         }
+
+        private async Task SendLanguageMenuWithImage(long chatId, string lang)
+        {
+            // 1. Правильный текст "Выберите язык" на выбранном языке
+            string caption = lang switch
+            {
+                "ru" => "Выберите язык:",
+                "ua" => "Оберіть мову:",
+                "en" => "Choose your language:",
+                "ar" => "اختر لغتك:",
+                _ => "Choose your language:"
+            };
+
+            // 2. Путь к картинке
+            string imagePath = Path.Combine("Images", "localization.png");
+
+            // 3. Если картинка существует — отправляем её
+            if (File.Exists(imagePath))
+            {
+                await using FileStream fs = new(imagePath, FileMode.Open, FileAccess.Read);
+
+                await _bot.SendPhoto(
+                    chatId: chatId,
+                    photo: Telegram.Bot.Types.InputFile.FromStream(fs, "localization.png"),
+                    caption: caption,
+                    replyMarkup: Keyboard.LanguageMenu()
+                );
+            }
+            else
+            {
+                // 4. Если картинки нет — всё равно отправляем подпись и кнопки
+                await _bot.SendMessage(
+                    chatId: chatId,
+                    text: $"(⚠ localization.png не найден)\n\n{caption}",
+                    replyMarkup: Keyboard.LanguageMenu()
+                );
+            }
+        }
+
+        private async Task SendWelcome(long chatId, string? lang)
+        {
+            string message = GetStartMessage(lang); // текст приветствия
+
+            string imagePath = Path.Combine("Images", "welcome.png");
+
+            if (File.Exists(imagePath))
+            {
+                await using FileStream fs = new(imagePath, FileMode.Open, FileAccess.Read);
+
+                await _bot.SendPhoto(
+                    chatId: chatId,
+                    photo: Telegram.Bot.Types.InputFile.FromStream(fs, "welcome.png"),
+                    caption: message, // подпись под картинкой
+                    replyMarkup: Keyboard.MainMenu(lang)
+                );
+            }
+            else
+            {
+                await _bot.SendMessage(
+                    chatId: chatId,
+                    text: $"(⚠ welcome.png не найден)\n\n{message}",
+                    replyMarkup: Keyboard.MainMenu(lang)
+                );
+            }
+        }
+
 
         // Обработка "Заинтересован"
         private async Task HandleInterest(Message msg)
