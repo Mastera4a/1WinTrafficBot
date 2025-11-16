@@ -390,23 +390,23 @@ namespace _1WinTrafficBot.Bot
             switch (text)
             {
                 case var _ when text == Translate("about", lang):
-                    await SendSection(userId, lang, "About");
+                    await SendSectionWithImage(userId, lang, "About");
                     break;
 
                 case var _ when text == Translate("services", lang):
-                    await SendSection(userId, lang, "Services");
+                    await SendSectionWithImage(userId, lang, "Services");
                     break;
 
                 case var _ when text == Translate("cases", lang):
-                    await SendSection(userId, lang, "Cases");
+                    await SendSectionWithImage(userId, lang, "Cases");
                     break;
 
                 case var _ when text == Translate("cooperation", lang):
-                    await SendSection(userId, lang, "Cooperation");
+                    await SendSectionWithImage(userId, lang, "Cooperation");
                     break;
 
                 case var _ when text == Translate("contact", lang):
-                    await SendSection(userId, lang, "Contact");
+                    await SendSectionWithImage(userId, lang, "Contact");
                     break;
 
                 case var _ when text == Translate("interested", lang):
@@ -437,7 +437,7 @@ namespace _1WinTrafficBot.Bot
 
             List<RequestInfo> list;
 
-            // Если файла нет → создаём новый список
+            // Если файла нет - создаём новый список
             if (!File.Exists(path))
             {
                 list = new List<RequestInfo>();
@@ -469,9 +469,32 @@ namespace _1WinTrafficBot.Bot
 
 
         // Отправить текст раздела
-        private async Task SendSection(long chatId, string lang, string key)
+        //private async Task SendSection(long chatId, string lang, string key)
+        //{
+        //    var texts = _textService.GetTexts(lang);
+        //    string message = key switch
+        //    {
+        //        "About" => texts.About,
+        //        "Services" => texts.Services,
+        //        "Cases" => texts.Cases,
+        //        "Cooperation" => texts.Cooperation,
+        //        "Contact" => texts.Contact,
+        //        _ => "Unknown section"
+        //    };
+
+        //    await _bot.SendMessage(
+        //        chatId: chatId,
+        //        text: message,
+        //        replyMarkup: Keyboard.SectionMenu(lang)
+        //    );
+        //}
+
+        // Отправить раздел: КАРТИНКА + ТЕКСТ
+        private async Task SendSectionWithImage(long chatId, string lang, string key)
         {
             var texts = _textService.GetTexts(lang);
+
+            // 1. Берём текст из JSON
             string message = key switch
             {
                 "About" => texts.About,
@@ -482,11 +505,31 @@ namespace _1WinTrafficBot.Bot
                 _ => "Unknown section"
             };
 
-            await _bot.SendMessage(
-                chatId: chatId,
-                text: message,
-                replyMarkup: Keyboard.SectionMenu(lang)
-            );
+            // 2. Путь к картинке: Images/about.png и т.д.
+            string fileName = $"{key.ToLower()}.png";          // "about.png"
+            string imagePath = Path.Combine("Images", fileName);
+
+            // 3. Если картинка есть — отправляем фото с подписью
+            if (File.Exists(imagePath))
+            {
+                await using FileStream fs = new(imagePath, FileMode.Open, FileAccess.Read);
+
+                await _bot.SendPhoto(
+                    chatId: chatId,
+                    photo: Telegram.Bot.Types.InputFile.FromStream(fs, fileName),
+                    caption: message,                                   // текст под картинкой
+                    replyMarkup: Keyboard.SectionMenu(lang)             // кнопки "Заинтересован" + Назад
+                );
+            }
+            else
+            {
+                // Если картинки нет — хотя бы отправим текст
+                await _bot.SendMessage(
+                    chatId: chatId,
+                    text: $"(⚠ Изображение {imagePath} не найдено)\n\n{message}",
+                    replyMarkup: Keyboard.SectionMenu(lang)
+                );
+            }
         }
 
         // Обработка "Заинтересован"
