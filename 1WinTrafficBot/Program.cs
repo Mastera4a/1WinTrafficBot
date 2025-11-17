@@ -27,8 +27,7 @@ namespace _1WinTrafficBot
             var botService = new BotService(token, textService);
             botService.Start();
 
-            Console.WriteLine("Бот работает. Нажмите Enter для выхода…");
-            Console.ReadLine();
+            Console.WriteLine("Бот работает");
         }
     }
 }
