@@ -327,108 +327,220 @@ namespace _1WinTrafficBot.Bot
         }
 
         // Обработка текстовых сообщений
+        //private async Task HandleMessage(Message msg)
+        //{
+        //    long userId = msg.Chat.Id;
+        //    string text = msg.Text!;
+
+        //    // Если это админ и он сейчас редактирует раздел — воспринимаем сообщение как новый текст
+        //    if (_admins.Contains(userId) && _adminEdits.TryGetValue(userId, out var editState) && !string.IsNullOrEmpty(editState.SectionKey))
+        //    {
+        //        await SaveSectionText(userId, editState.LanguageCode, editState.SectionKey, text);
+        //        _adminEdits.Remove(userId); // Сбросить состояние
+        //        return;
+        //    }
+
+        //    if (text == "/start")
+        //    {
+        //        await SendLanguageMenuWithImage(userId, "en");
+        //        return;
+        //    }
+
+        //    // Если язык ещё не выбран – ставим RU по умолчанию
+        //    //if (!_userLang.ContainsKey(userId))
+        //    //    _userLang[userId] = "ru";
+
+        //    if (!_userLang.ContainsKey(userId))
+        //    {
+        //        // Язык не выбран → сразу показать меню выбора языка
+        //        await SendLanguageMenuWithImage(userId, "en"); // язык надписи — по умолчанию EN
+        //        return;
+        //    }
+
+        //    string lang = _userLang[userId];
+
+        //    // ОБРАБОТКА КНОПКИ СМЕНЫ ЯЗЫКА
+        //    if (text == Translate("language", lang))
+        //    {
+        //        //await _bot.SendMessage(
+        //        //    chatId: userId,
+        //        //    text: "Выберите язык:",
+        //        //    replyMarkup: Keyboard.LanguageMenu()
+        //        //);
+        //        await SendLanguageMenuWithImage(userId, lang);
+        //        return;
+        //    }
+
+        //    // Команда /admin (вход в админ-панель)
+        //    if (text == "/admin")
+        //    {
+        //        // Проверяем — админ ли этот пользователь
+        //        if (!_admins.Contains(msg.Chat.Id))
+        //        {
+        //            await _bot.SendMessage(msg.Chat.Id, "У вас нет доступа.");
+        //            return;
+        //        }
+
+        //        // Показываем меню администратора
+        //        await ShowAdminMenu(msg.Chat.Id);
+        //        return;
+        //    }
+
+        //    // Пользователь выбрал язык — RU / UA / EN / AR
+        //    if (IsLanguageCode(text))
+        //    {
+        //        lang = ConvertLanguage(text);
+        //        _userLang[userId] = lang;
+
+        //        //await _bot.SendMessage(
+        //        //    chatId: userId,
+        //        //    text: GetStartMessage(lang),
+        //        //    replyMarkup: Keyboard.MainMenu(lang)
+        //        //);
+        //        await SendWelcome(userId, lang);
+        //        return;
+        //    }
+
+        //    // ОБРАБОТКА РАЗДЕЛОВ
+        //    switch (text)
+        //    {
+        //        case var _ when text == Translate("about", lang):
+        //            await SendSectionWithImage(userId, lang, "About");
+        //            break;
+
+        //        case var _ when text == Translate("services", lang):
+        //            await SendSectionWithImage(userId, lang, "Services");
+        //            break;
+
+        //        case var _ when text == Translate("cases", lang):
+        //            await SendSectionWithImage(userId, lang, "Cases");
+        //            break;
+
+        //        case var _ when text == Translate("cooperation", lang):
+        //            await SendSectionWithImage(userId, lang, "Cooperation");
+        //            break;
+
+        //        case var _ when text == Translate("contact", lang):
+        //            await SendSectionWithImage(userId, lang, "Contact");
+        //            break;
+
+        //        case var _ when text == Translate("interested", lang):
+        //            await HandleInterest(msg);
+        //            break;
+
+        //        case var _ when text == Translate("back", lang):
+        //            //await _bot.SendMessage(
+        //            //    chatId: userId,
+        //            //    text: GetStartMessage(lang),
+        //            //    replyMarkup: Keyboard.MainMenu(lang)
+        //            //);
+        //            await SendWelcome(userId, lang);
+        //            break;
+
+        //        default:
+        //            await SendWelcome(userId, lang);
+        //            break;
+        //    }
+        //}
+
         private async Task HandleMessage(Message msg)
         {
             long userId = msg.Chat.Id;
             string text = msg.Text!;
 
-            // Если это админ и он сейчас редактирует раздел — воспринимаем сообщение как новый текст
-            if (_admins.Contains(userId) && _adminEdits.TryGetValue(userId, out var editState) && !string.IsNullOrEmpty(editState.SectionKey))
+            // === 1. Если админ редактирует текст ===
+            if (_admins.Contains(userId) &&
+                _adminEdits.TryGetValue(userId, out var editState) &&
+                !string.IsNullOrEmpty(editState.SectionKey))
             {
                 await SaveSectionText(userId, editState.LanguageCode, editState.SectionKey, text);
-                _adminEdits.Remove(userId); // Сбросить состояние
+                _adminEdits.Remove(userId);
                 return;
             }
 
-            // Если язык ещё не выбран – ставим RU по умолчанию
-            if (!_userLang.ContainsKey(userId))
-                _userLang[userId] = "ru";
-
-            string lang = _userLang[userId];
-
-            // ОБРАБОТКА КНОПКИ СМЕНЫ ЯЗЫКА
-            if (text == Translate("language", lang))
+            // === 2. /start → ВСЕГДА показать выбор языка ===
+            if (text == "/start")
             {
-                //await _bot.SendMessage(
-                //    chatId: userId,
-                //    text: "Выберите язык:",
-                //    replyMarkup: Keyboard.LanguageMenu()
-                //);
-                await SendLanguageMenuWithImage(userId, lang);
+                await SendLanguageMenuWithImage(userId, "en");
                 return;
             }
 
-            // Команда /admin (вход в админ-панель)
-            if (text == "/admin")
-            {
-                // Проверяем — админ ли этот пользователь
-                if (!_admins.Contains(msg.Chat.Id))
-                {
-                    await _bot.SendMessage(msg.Chat.Id, "У вас нет доступа.");
-                    return;
-                }
-
-                // Показываем меню администратора
-                await ShowAdminMenu(msg.Chat.Id);
-                return;
-            }
-
-            // Пользователь выбрал язык — RU / UA / EN / AR
+            // === 3. Пользователь нажал кнопки языка (🇷🇺 RU, 🇺🇦 UA, 🇬🇧 EN, 🇦🇪 AR) ===
             if (IsLanguageCode(text))
             {
-                lang = ConvertLanguage(text);
+                string lang = ConvertLanguage(text);
                 _userLang[userId] = lang;
 
-                //await _bot.SendMessage(
-                //    chatId: userId,
-                //    text: GetStartMessage(lang),
-                //    replyMarkup: Keyboard.MainMenu(lang)
-                //);
                 await SendWelcome(userId, lang);
                 return;
             }
 
-            // ОБРАБОТКА РАЗДЕЛОВ
+            // === 4. Если язык ещё НЕ выбран → снова показать меню выбора ===
+            if (!_userLang.ContainsKey(userId))
+            {
+                await SendLanguageMenuWithImage(userId, "en");
+                return;
+            }
+
+            string userLang = _userLang[userId];
+
+            // === 5. Кнопка "Сменить язык" ===
+            if (text == Translate("language", userLang))
+            {
+                await SendLanguageMenuWithImage(userId, userLang);
+                return;
+            }
+
+            // === 6. Команда /admin ===
+            if (text == "/admin")
+            {
+                if (!_admins.Contains(userId))
+                {
+                    await _bot.SendMessage(userId, "У вас нет доступа.");
+                    return;
+                }
+
+                await ShowAdminMenu(userId);
+                return;
+            }
+
+            // === 7. Обработка разделов ===
             switch (text)
             {
-                case var _ when text == Translate("about", lang):
-                    await SendSectionWithImage(userId, lang, "About");
+                case var _ when text == Translate("about", userLang):
+                    await SendSectionWithImage(userId, userLang, "About");
                     break;
 
-                case var _ when text == Translate("services", lang):
-                    await SendSectionWithImage(userId, lang, "Services");
+                case var _ when text == Translate("services", userLang):
+                    await SendSectionWithImage(userId, userLang, "Services");
                     break;
 
-                case var _ when text == Translate("cases", lang):
-                    await SendSectionWithImage(userId, lang, "Cases");
+                case var _ when text == Translate("cases", userLang):
+                    await SendSectionWithImage(userId, userLang, "Cases");
                     break;
 
-                case var _ when text == Translate("cooperation", lang):
-                    await SendSectionWithImage(userId, lang, "Cooperation");
+                case var _ when text == Translate("cooperation", userLang):
+                    await SendSectionWithImage(userId, userLang, "Cooperation");
                     break;
 
-                case var _ when text == Translate("contact", lang):
-                    await SendSectionWithImage(userId, lang, "Contact");
+                case var _ when text == Translate("contact", userLang):
+                    await SendSectionWithImage(userId, userLang, "Contact");
                     break;
 
-                case var _ when text == Translate("interested", lang):
+                case var _ when text == Translate("interested", userLang):
                     await HandleInterest(msg);
                     break;
 
-                case var _ when text == Translate("back", lang):
-                    //await _bot.SendMessage(
-                    //    chatId: userId,
-                    //    text: GetStartMessage(lang),
-                    //    replyMarkup: Keyboard.MainMenu(lang)
-                    //);
-                    await SendWelcome(userId, lang);
+                case var _ when text == Translate("back", userLang):
+                    await SendWelcome(userId, userLang);
                     break;
 
                 default:
-                    await SendWelcome(userId, lang);
+                    await SendWelcome(userId, userLang);
                     break;
             }
         }
+
 
         private void SaveRequest(RequestInfo req)
         {
@@ -640,26 +752,40 @@ namespace _1WinTrafficBot.Bot
                 text: managerNotify,
                 parseMode: Telegram.Bot.Types.Enums.ParseMode.Markdown
             );
-        }        
+        }
 
         // Проверка RU/UA/EN/AR
+        //private bool IsLanguageCode(string txt)
+        //{
+        //    return txt == "RU" || txt == "UA" || txt == "EN" || txt == "AR";
+        //}
         private bool IsLanguageCode(string txt)
         {
-            return txt == "RU" || txt == "UA" || txt == "EN" || txt == "AR";
+            return txt.Contains("RU") || txt.Contains("UA") || txt.Contains("EN") || txt.Contains("AR");
         }
 
         // Конвертация RU → ru
+        //private string ConvertLanguage(string code)
+        //{
+        //    return code switch
+        //    {
+        //        "RU" => "ru",
+        //        "UA" => "ua",
+        //        "EN" => "en",
+        //        "AR" => "ar",
+        //        _ => "ru"
+        //    };
+        //}
         private string ConvertLanguage(string code)
         {
-            return code switch
-            {
-                "RU" => "ru",
-                "UA" => "ua",
-                "EN" => "en",
-                "AR" => "ar",
-                _ => "ru"
-            };
+            if (code.Contains("RU")) return "ru";
+            if (code.Contains("UA")) return "ua";
+            if (code.Contains("EN")) return "en";
+            if (code.Contains("AR")) return "ar";
+
+            return "ru";
         }
+
 
         // Текст приветствия
         private string GetStartMessage(string lang)

@@ -43,13 +43,24 @@ namespace _1WinTrafficBot.Bot
         {
             return new ReplyKeyboardMarkup(new[]
             {
-            new KeyboardButton[] { "RU", "UA" },
-            new KeyboardButton[] { "EN", "AR" }
-        })
+                    new KeyboardButton[] { "🇷🇺 RU", "🇺🇦 UA" },
+                    new KeyboardButton[] { "🇬🇧 EN", "🇦🇪 AR" }
+            })
             {
                 ResizeKeyboard = true
             };
         }
+        //public static ReplyKeyboardMarkup LanguageMenu()
+        //{
+        //    return new ReplyKeyboardMarkup(new[]
+        //    {
+        //    new KeyboardButton[] { "RU", "UA" },
+        //    new KeyboardButton[] { "EN", "AR" }
+        //})
+        //    {
+        //        ResizeKeyboard = true
+        //    };
+        //}
 
         // Простая локализация кнопок
         private static string Translate(string key, string lang)
