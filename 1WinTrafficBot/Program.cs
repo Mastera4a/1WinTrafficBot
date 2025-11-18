@@ -24,6 +24,7 @@ namespace _1WinTrafficBot
             Console.WriteLine("=== 1WIN TRAFFIC BOT ===");
 
             string token = Environment.GetEnvironmentVariable("BOT_TOKEN");
+            //string token = "8555782174:AAH5NPj2UDuhH0oE02nC6ie4c_BEjFTx-2U";
 
             if (string.IsNullOrEmpty(token))
             {

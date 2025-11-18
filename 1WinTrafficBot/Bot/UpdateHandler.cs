@@ -601,11 +601,53 @@ namespace _1WinTrafficBot.Bot
         //}
 
         // Отправить раздел: КАРТИНКА + ТЕКСТ
+        //private async Task SendSectionWithImage(long chatId, string lang, string key)
+        //{
+        //    var texts = _textService.GetTexts(lang);
+
+        //    // 1. Берём текст из JSON
+        //    string message = key switch
+        //    {
+        //        "About" => texts.About,
+        //        "Services" => texts.Services,
+        //        "Cases" => texts.Cases,
+        //        "Cooperation" => texts.Cooperation,
+        //        "Contact" => texts.Contact,
+        //        _ => "Unknown section"
+        //    };
+
+        //    // 2. Путь к картинке: Images/about.png и т.д.
+        //    string fileName = $"{key.ToLower()}.png";          // "about.png"
+        //    string imagePath = Path.Combine("Images", fileName);
+
+        //    // 3. Если картинка есть — отправляем фото с подписью
+        //    if (File.Exists(imagePath))
+        //    {
+        //        await using FileStream fs = new(imagePath, FileMode.Open, FileAccess.Read);
+
+        //        await _bot.SendPhoto(
+        //            chatId: chatId,
+        //            photo: Telegram.Bot.Types.InputFile.FromStream(fs, fileName),
+        //            caption: message,                                   // текст под картинкой
+        //            replyMarkup: Keyboard.SectionMenu(lang)             // кнопки "Заинтересован" + Назад
+        //        );
+        //    }
+        //    else
+        //    {
+        //        // Если картинки нет — хотя бы отправим текст
+        //        await _bot.SendMessage(
+        //            chatId: chatId,
+        //            text: $"(⚠ Изображение {imagePath} не найдено)\n\n{message}",
+        //            replyMarkup: Keyboard.SectionMenu(lang)
+        //        );
+        //    }
+        //}
+
         private async Task SendSectionWithImage(long chatId, string lang, string key)
         {
             var texts = _textService.GetTexts(lang);
 
-            // 1. Берём текст из JSON
+            // 1. Текст секции
             string message = key switch
             {
                 "About" => texts.About,
@@ -616,32 +658,45 @@ namespace _1WinTrafficBot.Bot
                 _ => "Unknown section"
             };
 
-            // 2. Путь к картинке: Images/about.png и т.д.
-            string fileName = $"{key.ToLower()}.png";          // "about.png"
-            string imagePath = Path.Combine("Images", fileName);
+            // 2. Первый файл
+            string mainFile = $"{key.ToLower()}.png";             // about.png
+            string secondFile = $"{key.ToLower()}_2.png";         // about_2.png (или любое имя)
 
-            // 3. Если картинка есть — отправляем фото с подписью
-            if (File.Exists(imagePath))
+            string mainPath = Path.Combine("Images", mainFile);
+            string secondPath = Path.Combine("Images", secondFile);
+
+            // === ОТПРАВКА ПЕРВОГО ИЗОБРАЖЕНИЯ ===
+            if (File.Exists(mainPath))
             {
-                await using FileStream fs = new(imagePath, FileMode.Open, FileAccess.Read);
+                await using FileStream fs = new(mainPath, FileMode.Open, FileAccess.Read);
 
                 await _bot.SendPhoto(
                     chatId: chatId,
-                    photo: Telegram.Bot.Types.InputFile.FromStream(fs, fileName),
-                    caption: message,                                   // текст под картинкой
-                    replyMarkup: Keyboard.SectionMenu(lang)             // кнопки "Заинтересован" + Назад
+                    photo: InputFile.FromStream(fs, mainFile),
+                    caption: message,
+                    parseMode: ParseMode.Html,
+                    replyMarkup: Keyboard.SectionMenu(lang)
                 );
             }
             else
             {
-                // Если картинки нет — хотя бы отправим текст
-                await _bot.SendMessage(
+                await _bot.SendMessage(chatId, "(⚠ Основное изображение не найдено)");
+            }
+
+            // === ОТПРАВКА ВТОРОГО ИЗОБРАЖЕНИЯ ===
+            if (File.Exists(secondPath))
+            {
+                await using FileStream fs2 = new(secondPath, FileMode.Open, FileAccess.Read);
+
+                await _bot.SendPhoto(
                     chatId: chatId,
-                    text: $"(⚠ Изображение {imagePath} не найдено)\n\n{message}",
-                    replyMarkup: Keyboard.SectionMenu(lang)
+                    photo: InputFile.FromStream(fs2, secondFile),
+                    caption: "", // можно без подписи
+                    parseMode: ParseMode.Html
                 );
             }
         }
+
 
         private async Task SendLanguageMenuWithImage(long chatId, string lang)
         {
