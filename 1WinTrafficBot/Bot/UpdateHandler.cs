@@ -22,15 +22,16 @@ namespace _1WinTrafficBot.Bot
 
         private readonly HashSet<long> _admins = new()
         {
-            559541816, // ← твой ID
-            7296468013  // ← ID менеджера (если нужно)
+            559541816,
+            7296468013,
+            7229488910
         };
 
         // Храним язык для каждого user_id
         private readonly Dictionary<long, string> _userLang = new();
 
         // Telegram менеджера (получает заявки)
-        private readonly long _managerId = 7296468013; // ← ПОМЕНЯЙ!
+        private readonly long _managerId = 7229488910; // ← ПОМЕНЯЙ!
 
         public UpdateHandler(ITelegramBotClient bot, TextService textService)
         {
